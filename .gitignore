@@ -78,6 +78,5 @@ Desktop.ini
 *.sln.docstates # Visual Studio
 
 # other things
-.VSCode/
-.vccode/
-.devcontainer
+.VSCodeCounter/
+.devcontainer/
