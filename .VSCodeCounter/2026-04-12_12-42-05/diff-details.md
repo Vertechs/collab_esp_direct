@@ -1,0 +1,15 @@
+# Diff Details
+
+Date : 2026-04-12 12:42:05
+
+Directory /home/tyfi/Projects/Collab/direct_esp32/TCPStepper
+
+Total : 0 files,  0 codes, 0 comments, 0 blanks, all 0 lines
+
+[Summary](results.md) / [Details](details.md) / [Diff Summary](diff.md) / Diff Details
+
+## Files
+| filename | language | code | comment | blank | total |
+| :--- | :--- | ---: | ---: | ---: | ---: |
+
+[Summary](results.md) / [Details](details.md) / [Diff Summary](diff.md) / Diff Details

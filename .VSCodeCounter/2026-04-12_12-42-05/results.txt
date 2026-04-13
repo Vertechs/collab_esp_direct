@@ -1,0 +1,73 @@
+Date : 2026-04-12 12:42:05
+Directory : /home/tyfi/Projects/Collab/direct_esp32/TCPStepper
+Total : 26 files,  580 codes, 119 comments, 230 blanks, all 929 lines
+
+Languages
++--------------------+------------+------------+------------+------------+------------+
+| language           | files      | code       | comment    | blank      | total      |
++--------------------+------------+------------+------------+------------+------------+
+| C                  |          9 |        411 |         88 |        166 |        665 |
+| C++                |          8 |        106 |         31 |         55 |        192 |
+| CMake              |          7 |         36 |          0 |          4 |         40 |
+| JSON with Comments |          1 |         19 |          0 |          0 |         19 |
+| Docker             |          1 |          8 |          0 |          5 |         13 |
++--------------------+------------+------------+------------+------------+------------+
+
+Directories
++-------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                  | files      | code       | comment    | blank      | total      |
++-------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                     |         26 |        580 |        119 |        230 |        929 |
+| . (Files)                                                                                             |          1 |          6 |          0 |          4 |         10 |
+| .devcontainer                                                                                         |          2 |         27 |          0 |          5 |         32 |
+| components                                                                                            |         21 |        504 |        111 |        203 |        818 |
+| components/commanders                                                                                 |          3 |         50 |         14 |         19 |         83 |
+| components/commanders (Files)                                                                         |          2 |         24 |         10 |         10 |         44 |
+| components/commanders/include                                                                         |          1 |         26 |          4 |          9 |         39 |
+| components/configurators                                                                              |          4 |         96 |         25 |         42 |        163 |
+| components/configurators (Files)                                                                      |          2 |         76 |         15 |         27 |        118 |
+| components/configurators/include                                                                      |          2 |         20 |         10 |         15 |         45 |
+| components/stepper_driver                                                                             |          5 |         90 |         25 |         48 |        163 |
+| components/stepper_driver (Files)                                                                     |          3 |         52 |         17 |         29 |         98 |
+| components/stepper_driver/include                                                                     |          2 |         38 |          8 |         19 |         65 |
+| components/tcp_servers                                                                                |          6 |        187 |         42 |         74 |        303 |
+| components/tcp_servers (Files)                                                                        |          5 |        174 |         37 |         69 |        280 |
+| components/tcp_servers/include                                                                        |          1 |         13 |          5 |          5 |         23 |
+| components/wifi_setup                                                                                 |          3 |         81 |          5 |         20 |        106 |
+| components/wifi_setup (Files)                                                                         |          2 |         77 |          1 |         17 |         95 |
+| components/wifi_setup/include                                                                         |          1 |          4 |          4 |          3 |         11 |
+| main                                                                                                  |          2 |         43 |          8 |         18 |         69 |
++-------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-------------------------------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+
+| filename                                                                                              | language           | code       | comment    | blank      | total      |
++-------------------------------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/.devcontainer/Dockerfile                           | Docker             |          8 |          0 |          5 |         13 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/.devcontainer/devcontainer.json                    | JSON with Comments |         19 |          0 |          0 |         19 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/CMakeLists.txt                                     | CMake              |          6 |          0 |          4 |         10 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/commanders/CMakeLists.txt               | CMake              |          5 |          0 |          0 |          5 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/commanders/cmd_interpreter.c            | C                  |         19 |         10 |         10 |         39 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/commanders/include/cmd_interpreter.h    | C++                |         26 |          4 |          9 |         39 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/configurators/CMakeLists.txt            | CMake              |          5 |          0 |          0 |          5 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/configurators/cfg_dispatcher.c          | C                  |         71 |         15 |         27 |        113 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/configurators/include/cfg_dispatcher.h  | C++                |         20 |         10 |         14 |         44 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/configurators/include/cfg_signal_get.h  | C++                |          0 |          0 |          1 |          1 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/stepper_driver/CMakeLists.txt           | CMake              |          5 |          0 |          0 |          5 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/stepper_driver/include/stepper_config.h | C++                |          0 |          0 |          1 |          1 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/stepper_driver/include/stepper_driver.h | C++                |         38 |          8 |         18 |         64 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/stepper_driver/stepper_config.c         | C                  |         45 |         15 |         23 |         83 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/stepper_driver/stepper_driver.c         | C                  |          2 |          2 |          6 |         10 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/tcp_servers/CMakeLists.txt              | CMake              |          5 |          0 |          0 |          5 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/tcp_servers/command_server.c            | C                  |         62 |         18 |         25 |        105 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/tcp_servers/config_server.c             | C                  |         70 |         13 |         29 |        112 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/tcp_servers/helper_f.c                  | C                  |         32 |          6 |         11 |         49 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/tcp_servers/helper_f.h                  | C++                |          5 |          0 |          4 |          9 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/tcp_servers/include/tcp_servers.h       | C++                |         13 |          5 |          5 |         23 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/wifi_setup/CMakeLists.txt               | CMake              |          5 |          0 |          0 |          5 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/wifi_setup/include/wifi_setup.h         | C++                |          4 |          4 |          3 |         11 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/components/wifi_setup/wifi_setup.c                 | C                  |         72 |          1 |         17 |         90 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/main/CMakeLists.txt                                | CMake              |          5 |          0 |          0 |          5 |
+| /home/tyfi/Projects/Collab/direct_esp32/TCPStepper/main/main.c                                        | C                  |         38 |          8 |         18 |         64 |
+| Total                                                                                                 |                    |        580 |        119 |        230 |        929 |
++-------------------------------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+
