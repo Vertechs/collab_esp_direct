@@ -9,7 +9,9 @@
 #include "lwip/netdb.h"
 #include "cJSON.h"
 
-static const char *TAG_CMD = "TCP Command";
+#define debug 1
+
+static const char *TAG_CMD = "command_server";
 
 //===================
 //command tcp message server task

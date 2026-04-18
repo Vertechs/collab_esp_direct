@@ -11,6 +11,11 @@ typedef struct{
     cJSON *data;  //ownership of calling function, delete after appending to return JSON
 }err_json_tuple_t;
 
+typedef struct{
+    esp_err_t err;
+    float value;
+}err_val_tuple_t;
+
 // initialization function, should implement similar to config functions but allowed
 // to allocate new entries in hardware arrays
 typedef err_json_tuple_t (*tool_init_fn)(const char *name, const cJSON *config);

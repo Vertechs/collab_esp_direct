@@ -9,6 +9,7 @@
 #include "stepper_driver.h"
 #include "cfg_dispatcher.h"
 #include "esp_timer.h"
+#include "cJSON.h"
 
 #define debug 1
 
@@ -23,7 +24,7 @@ saxis_t g_axis_data_array[NUM_AXES] = {0};
 
 saxis_t *g_axis_ptr_array[NUM_AXES];
 
-static const char *TAG = "StepDriver";
+static const char *TAG = "stepper_driver";
 
 /*
 =========
@@ -114,52 +115,91 @@ Parameter and signal set functions
 Should evaluate quickly to be safe for configs and commands
 =========
 */
-err_json_tuple_t saxis_set_dir_pin(saxis_t *axis, gpio_num_t pin_num){
+
+// no cJSON parsing or handling, keep light if can
+esp_err_t saxis_set_dir_pin(saxis_t *axis, gpio_num_t pin_num){
     // TODO, add more checks for existing allocations
     if ((pin_num <= PIN_UPPER_OK) && (pin_num >= PIN_LOWER_OK)){
         axis->dir_pin = pin_num;
-        return (err_json_tuple_t){ESP_OK,NULL};
+        return ESP_OK;
     }else{
-        return (err_json_tuple_t){ESP_ERR_INVALID_ARG,NULL};
+        return ESP_ERR_INVALID_ARG;
     }
 }
-err_json_tuple_t saxis_set_step_pin(saxis_t *axis, gpio_num_t pin_num){
+esp_err_t saxis_set_step_pin(saxis_t *axis, gpio_num_t pin_num){
     // TODO, add more checks for existing allocations
     if ((pin_num <= PIN_UPPER_OK) && (pin_num >= PIN_LOWER_OK)){
         axis->step_pin = pin_num;
-        return (err_json_tuple_t){ESP_OK,NULL};
+        return ESP_OK;
     }else{
-        return (err_json_tuple_t){ESP_ERR_INVALID_ARG,NULL};
+        return ESP_ERR_INVALID_ARG;
     }
 }
-err_json_tuple_t saxis_set_enable_pin(saxis_t *axis, gpio_num_t pin_num){
+esp_err_t saxis_set_enable_pin(saxis_t *axis, gpio_num_t pin_num){
     // TODO, add more checks for existing allocations
     if ((pin_num <= PIN_UPPER_OK) && (pin_num >= PIN_LOWER_OK)){
         axis->en_pin = pin_num;
-        return (err_json_tuple_t){ESP_OK,NULL};
+        return ESP_OK;
     }else{
-        return (err_json_tuple_t){ESP_ERR_INVALID_ARG,NULL};
+        return ESP_ERR_INVALID_ARG;
     }
 }
-err_json_tuple_t saxis_set_steps_per_eu(saxis_t *axis, float steps_per_eu){
+esp_err_t saxis_set_steps_per_eu(saxis_t *axis, float steps_per_eu){
     // TODO, add more checks
     if ((steps_per_eu <= 1e10) && (steps_per_eu >= -1e10)){
         axis->factor_steps_per_unit = steps_per_eu;
-        return (err_json_tuple_t){ESP_OK,NULL};
+        return ESP_OK;
     }else{
-        return (err_json_tuple_t){ESP_ERR_INVALID_ARG,NULL};
-    } 
+        return ESP_ERR_INVALID_ARG;
+    }
 }
-
-err_json_tuple_t saxis_set_mode_cmd(saxis_t *axis, saxis_state_t mode_cmd){
-    if (mode_cmd <AXIS_CTRL_HOLD || mode_cmd > AXIS_CTRL_POSITION){
-        return (err_json_tuple_t){ESP_ERR_INVALID_ARG,NULL};
+esp_err_t saxis_set_microstep(saxis_t *axis, int microstep){
+    // TODO, add more checks
+    if ((microstep <= 128) && (microstep >= 0)){
+        axis->factor_microstep = microstep;
+        return ESP_OK;
     }else{
-        axis->mode_cmd = mode_cmd;
-        return (err_json_tuple_t){ESP_OK,NULL};
+        return ESP_ERR_INVALID_ARG;
     }
 }
 
+esp_err_t saxis_set_mode_cmd(saxis_t *axis, saxis_state_t mode_cmd){
+    if (mode_cmd <AXIS_CTRL_HOLD || mode_cmd > AXIS_CTRL_POSITION){
+        return ESP_ERR_INVALID_ARG;
+    }else{
+        axis->mode_cmd = mode_cmd;
+        return ESP_OK;
+    }
+}
+
+esp_err_t saxis_set_vel_cmd(saxis_t *axis, float vel_cmd){
+    if (false){ // TODO (vel_cmd < axis->limit_velocity_low || vel_cmd > axis->limit_velocity_high){
+        return ESP_ERR_INVALID_ARG;
+    }else{
+        axis->target_velocity_cmd = vel_cmd;
+        axis->target_velocity_steps = vel_cmd * axis->factor_steps_per_unit * axis->factor_microstep;
+        return ESP_OK;
+    }
+}
+
+esp_err_t saxis_set_pos_cmd(saxis_t *axis, float pos_cmd){
+    if (false){ // TODO (vel_cmd < axis->limit_velocity_low || vel_cmd > axis->limit_velocity_high){
+        return ESP_ERR_INVALID_ARG;
+    }else{
+        axis->target_position_cmd = pos_cmd;
+        axis->target_position_steps = pos_cmd * axis->factor_steps_per_unit * axis->factor_microstep;
+        return ESP_OK;
+    }
+}
+
+esp_err_t saxis_set_enable(saxis_t *axis, bool enable_cmd){
+    if (!axis->fault_okay && enable_cmd !=0 ){ // TODO (vel_cmd < axis->limit_velocity_low || vel_cmd > axis->limit_velocity_high){
+        return ESP_ERR_INVALID_ARG;
+    }else{
+        axis->enable = enable_cmd;
+        return ESP_OK;
+    }
+}
 
 
 /*
@@ -168,13 +208,14 @@ Parameter and signal get functions
 Should evaluate quickly to be safe for configs and commands
 =========
 */
+float saxis_get_vel_act(saxis_t *axis){
+    // TODO better estimate?
+    return axis->target_velocity_steps / (axis->factor_steps_per_unit * axis->factor_microstep);
+}
 
-
-
-
-
-
-
+float saxis_get_pos_act(saxis_t *axis){
+    return axis->odom_steps_act / (axis->factor_steps_per_unit * axis->factor_microstep);
+}
 
 /*
 =========
@@ -215,14 +256,26 @@ bool IRAM_ATTR saxis_timer_scan_pos(gptimer_handle_t timer, const gptimer_alarm_
 
 
 esp_err_t saxis_cfg_initialize(saxis_t *axis){
-    // set pin modes for step, dir, and enable pin
-    gpio_reset_pin(axis->dir_pin);
-    gpio_set_direction(axis->dir_pin, GPIO_MODE_OUTPUT);
-    gpio_reset_pin(axis->step_pin);
-    gpio_set_direction(axis->step_pin, GPIO_MODE_OUTPUT);
-    gpio_reset_pin(axis->en_pin);
-    gpio_set_direction(axis->en_pin, GPIO_MODE_OUTPUT);
+    #if debug
+    ESP_LOGI(TAG, "Initializing axis: %s, dir=%d, stp=%d, en=%d", axis->name_str, axis->dir_pin, axis->step_pin, axis->en_pin);
+    #endif
 
+    // TODO add more error checks and deallocate if failed
+
+    // set pin modes for step, dir, and enable pin
+    int pin_err = 0; 
+    pin_err |= gpio_reset_pin(axis->dir_pin);
+    pin_err |= gpio_set_direction(axis->dir_pin, GPIO_MODE_OUTPUT);
+    pin_err |= gpio_set_level(axis->dir_pin, 0);
+    pin_err |= gpio_reset_pin(axis->step_pin);
+    pin_err |= gpio_set_direction(axis->step_pin, GPIO_MODE_OUTPUT);
+    pin_err |= gpio_set_level(axis->step_pin, 0);
+    pin_err |= gpio_reset_pin(axis->en_pin);
+    pin_err |= gpio_set_direction(axis->en_pin, GPIO_MODE_OUTPUT);
+    pin_err |= gpio_set_level(axis->en_pin, 0);
+
+    if (pin_err) {return pin_err;}
+    
     // set default states
     axis->pin_states.dir = 0;
     axis->pin_states.step = 0;
@@ -298,7 +351,7 @@ esp_err_t saxis_cfg_deinitialize(saxis_t *axis){
     axis->moving = false;
     axis->enable = false;
 
-    return ESP_OK;
+    return err ? ESP_FAIL : ESP_OK;
 }
 
 esp_err_t saxis_main_scan(saxis_t *axis){

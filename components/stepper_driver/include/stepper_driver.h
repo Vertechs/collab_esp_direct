@@ -48,6 +48,7 @@ typedef struct{
     bool level;
 } saxis_homing_pin;
 
+
 typedef struct{
 
     // discovery
@@ -96,6 +97,12 @@ typedef struct{
     int32_t home_steps; // odom reset to 0 when homed, using this just for history
     saxis_fault_info fault_info;
 
+    // Limits
+    float limit_velocity_low;
+    float limit_velocity_high;
+    float limit_position_low;
+    float limit_position_high;
+
     // resources
     gptimer_handle_t hardware_timer;
     uint64_t wd_last_scan_us;
@@ -105,17 +112,25 @@ typedef struct{
 
 }saxis_t;
 
+void saxis_setup_all(void);
 
-err_json_tuple_t saxis_set_dir_pin(saxis_t *axis, gpio_num_t pin_num);
-err_json_tuple_t saxis_set_step_pin(saxis_t *axis, gpio_num_t pin_num);
-err_json_tuple_t saxis_set_enable_pin(saxis_t *axis, gpio_num_t pin_num);
-err_json_tuple_t saxis_set_steps_per_eu(saxis_t *axis, float steps_to_eu);
-err_json_tuple_t saxis_set_microstep(saxis_t *axis, float microstep_factor);
+// TODO maybe change all of these to err (esp_err_t) and result (float)
+esp_err_t saxis_set_dir_pin(saxis_t *axis, gpio_num_t pin_num);
+esp_err_t saxis_set_step_pin(saxis_t *axis, gpio_num_t pin_num);
+esp_err_t saxis_set_enable_pin(saxis_t *axis, gpio_num_t pin_num);
+esp_err_t saxis_set_steps_per_eu(saxis_t *axis, float steps_to_eu);
+esp_err_t saxis_set_microstep(saxis_t *axis, int microstep);
 
-err_json_tuple_t saxis_set_vel_cmd(saxis_t *axis, float vel_cmd);
-err_json_tuple_t saxis_set_pos_cmd(saxis_t *axis, float pos_cmd);
-err_json_tuple_t saxis_set_mode_cmd(saxis_t *axis, saxis_state_t mode_cmd);
-err_json_tuple_t saxis_set_enable(saxis_t *axis, bool enable_cmd);
+esp_err_t saxis_set_vel_cmd(saxis_t *axis, float vel_cmd);
+esp_err_t saxis_set_pos_cmd(saxis_t *axis, float pos_cmd);
+esp_err_t saxis_set_mode_cmd(saxis_t *axis, saxis_state_t mode_cmd);
+esp_err_t saxis_set_enable(saxis_t *axis, bool enable_cmd);
+
+esp_err_t saxis_set_vel_cmd(saxis_t *axis, float vel_cmd);
+esp_err_t saxis_set_pos_cmd(saxis_t *axis, float pos_cmd);
+esp_err_t saxis_set_mode_cmd(saxis_t *axis, saxis_state_t mode_cmd);
+esp_err_t saxis_set_enable(saxis_t *axis, bool enable_cmd);
+
 
 esp_err_t saxis_cfg_initialize(saxis_t *axis);
 esp_err_t saxis_cfg_deinitialize(saxis_t *axis);

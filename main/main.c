@@ -60,6 +60,7 @@ void app_main(void)
     vTaskDelay(500 / portTICK_PERIOD_MS);
 
     //TODO Axis Init
+    saxis_setup_all();
 
     //TODO Server Init
     config_server_start();
@@ -69,8 +70,15 @@ void app_main(void)
     configurator_register_tool_handler("saxis", saxis_cfg_init_from_json, saxis_cfg_config_from_json);
 
     bool s_led_state = 0;
+    uint64_t loop_i = 0;
     while(1){
         gpio_set_level(STATUS_GPIO, s_led_state ^= 1);
+
+        if (loop_i % 5 == 0){
+            ESP_LOGI(TAG, "Free heap = %u", xPortGetFreeHeapSize());
+        }
+
+        loop_i++;
 
         vTaskDelay(MAIN_PERIOD / portTICK_PERIOD_MS);
     }

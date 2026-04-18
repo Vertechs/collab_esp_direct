@@ -8,35 +8,169 @@
 
 #include "stepper_driver.h"
 #include "cfg_dispatcher.h"
+#include "stepper_config.h"
 
 #define debug 1
 
-#define JSON_TOOL_NAME "name"
-#define JSON_PARAMETER_ARRAY "para"
-
-#define JSON_SAXIS_DIR_PIN "dir_pin"
-#define JSON_SAXIS_STEP_PIN "step_pin"
-#define JSON_SAXIS_ENABLE_PIN "en_pin"
-#define JSON_SAXIS_STEP_PER_EU "steps_per_unit"
-#define JSON_SAXIS_UNITS "units"
-
-#define JSON_SAXIS_SIGNAL_POS "pos_act"
-#define JSON_SAXIS_SIGNAL_VEL "vel_act"
-#define JSON_SAXIS_SIGNAL_POS_T "pos_tgt"
-#define JSON_SAXIS_SIGNAL_VEL_T "vel_tgt"
-#define JSON_SAXIS_SIGNAL_MODE "mode_act"
-#define JSON_SAXIS_SIGNAL_MODE_CMD "mode_cmd"
-#define JSON_SAXIS_SIGNAL_STATE "state"
-#define JSON_SAXIS_SIGNAL_ENABLE_CMD "en_cmd"
-// TODO, not very clean, 
-// not clear to requesting computer what signals do, 
-// tree structure is not represented
-
 extern saxis_t *g_axis_ptr_array[NUM_AXES];
 
-static const char *TAG = "SAxisConfig";
+static const char *TAG = "stepper_config";
 
 // init all to zero
+
+
+//====
+//wrapper functions for driver
+//Not wrappers, handle getting and setting with fast function from driver
+//All should return current value if parameter value is null 
+//====
+
+// DIRECTION PIN
+static err_json_tuple_t saxis_cfg_dir_pin(saxis_t *axis, cJSON *parameter){
+    esp_err_t err = 0;
+
+    if (!cJSON_IsNull(parameter)){
+        err = saxis_set_dir_pin(axis, parameter->valueint);
+    }
+
+    cJSON *ret_val = cJSON_CreateObject(); //destroyed by root delete call
+    cJSON_AddNumberToObject(ret_val, JSON_SAXIS_DIR_PIN, axis->dir_pin);
+
+    return (err_json_tuple_t){err,ret_val};
+}
+
+// STEP PIN
+static err_json_tuple_t saxis_cfg_step_pin(saxis_t *axis, cJSON *parameter){
+    esp_err_t err = 0;
+
+    if (!cJSON_IsNull(parameter)){
+        err = saxis_set_step_pin(axis, parameter->valueint);
+    }
+
+    cJSON *ret_val = cJSON_CreateObject(); //destroyed by root delete call
+    cJSON_AddNumberToObject(ret_val, JSON_SAXIS_STEP_PIN, axis->step_pin);
+    
+    return (err_json_tuple_t){err,ret_val};
+}
+
+// ENABLE PIN
+static err_json_tuple_t saxis_cfg_enable_pin(saxis_t *axis, cJSON *parameter){
+    esp_err_t err = 0;
+
+    if (!cJSON_IsNull(parameter)){
+        err = saxis_set_enable_pin(axis, parameter->valueint);
+    }
+
+    cJSON *ret_val = cJSON_CreateObject(); //destroyed by root delete call
+    cJSON_AddNumberToObject(ret_val, JSON_SAXIS_ENABLE_PIN, axis->en_pin);
+    
+    return (err_json_tuple_t){err,ret_val};
+}
+
+// STEPS PER UNIT
+static err_json_tuple_t saxis_cfg_steps_per_eu(saxis_t *axis, cJSON *parameter){
+    esp_err_t err = 0;
+
+    if (!cJSON_IsNull(parameter)){
+        err = saxis_set_steps_per_eu(axis, (float)parameter->valuedouble);
+    }
+
+    cJSON *ret_val = cJSON_CreateObject(); //destroyed by root delete call
+    cJSON_AddNumberToObject(ret_val, JSON_SAXIS_STEP_PER_EU, axis->factor_steps_per_unit);
+    
+    return (err_json_tuple_t){err,ret_val};
+}
+
+// MICROSTEPS
+static err_json_tuple_t saxis_cfg_microstep(saxis_t *axis, cJSON *parameter){
+    esp_err_t err = 0;
+
+    if (!cJSON_IsNull(parameter)){
+        err = saxis_set_microstep(axis, parameter->valueint);
+    }
+
+    cJSON *ret_val = cJSON_CreateObject(); //destroyed by root delete call
+    cJSON_AddNumberToObject(ret_val, JSON_SAXIS_MICROSTEP, axis->factor_microstep);
+    
+    return (err_json_tuple_t){err,ret_val};
+}
+
+// UNIT STRING
+static err_json_tuple_t saxis_cfg_units(saxis_t *axis, cJSON *parameter){
+    esp_err_t err = 0;
+
+    if (!cJSON_IsNull(parameter)){
+        strcpy(axis->unit_str, parameter->valuestring);
+    }
+
+    cJSON *ret_val = cJSON_CreateObject(); //destroyed by root delete call
+    cJSON_AddStringToObject(ret_val, JSON_SAXIS_UNITS, axis->unit_str);
+    
+    return (err_json_tuple_t){err,ret_val};
+}
+
+
+// VELOCITY COMMAND
+static err_json_tuple_t saxis_cfg_vel_cmd(saxis_t *axis, cJSON *parameter){
+    esp_err_t err = 0;
+
+    if (!cJSON_IsNull(parameter)){
+        err = saxis_set_vel_cmd(axis, parameter->valuedouble);
+    }
+
+    cJSON *ret_val = cJSON_CreateObject(); //destroyed by root delete call
+    cJSON_AddNumberToObject(ret_val, JSON_SAXIS_SIGNAL_VEL_T, axis->target_velocity_cmd);
+    
+    return (err_json_tuple_t){err,ret_val};
+}
+
+// POSITION COMMAND
+static err_json_tuple_t saxis_cfg_pos_cmd(saxis_t *axis, cJSON *parameter){
+    esp_err_t err = 0;
+
+    if (!cJSON_IsNull(parameter)){
+        err = saxis_set_pos_cmd(axis, parameter->valuedouble);
+    }
+
+    cJSON *ret_val = cJSON_CreateObject(); //destroyed by root delete call
+    cJSON_AddNumberToObject(ret_val, JSON_SAXIS_SIGNAL_POS_T, axis->target_position_cmd);
+    
+    return (err_json_tuple_t){err,ret_val};
+}
+
+// MODE SWITCH COMMAND
+static err_json_tuple_t saxis_cfg_mode_cmd(saxis_t *axis, cJSON *parameter){
+    esp_err_t err = 0;
+
+    if (!cJSON_IsNull(parameter)){
+        err = saxis_set_pos_cmd(axis, parameter->valueint);
+    }
+
+    cJSON *ret_val = cJSON_CreateObject(); //destroyed by root delete call
+    cJSON_AddNumberToObject(ret_val, JSON_SAXIS_SIGNAL_MODE_CMD, axis->mode_cmd);
+    
+    return (err_json_tuple_t){err,ret_val};
+}
+
+// ENABLE COMMAND
+static err_json_tuple_t saxis_cfg_enable(saxis_t *axis, cJSON *parameter){
+    esp_err_t err = 0;
+
+    if (!cJSON_IsNull(parameter)){
+       err = saxis_set_enable(axis, parameter->valueint);
+    }
+
+    cJSON *ret_val = cJSON_CreateObject(); //destroyed by root delete call
+    cJSON_AddNumberToObject(ret_val, JSON_SAXIS_SIGNAL_ENABLE_CMD, axis->enable);
+    
+    return (err_json_tuple_t){err,ret_val};
+}
+
+
+//====
+// Main functions
+//====
+
 
 err_json_tuple_t saxis_cfg_get_init_template(){
     return (err_json_tuple_t){ESP_OK, NULL};
@@ -47,35 +181,24 @@ err_json_tuple_t saxis_cfg_config_set_single(saxis_t *target_axis, cJSON *parame
     // TODO again not clean, might be a way to centralize this at least in the compiler
 
     #if debug
-    ESP_LOGI(TAG, "Setting %s", parameter->valuestring);
+    ESP_LOGI(TAG, "Setting %s", parameter->string);
     #endif
 
-    // TODO not accessing the value here correctly
-    // call set functions for process critical values
-    if (strcmp(parameter->valuestring, JSON_SAXIS_DIR_PIN)==0){
-        return(saxis_set_dir_pin(target_axis,(gpio_num_t)parameter->valueint));
+    // NEW static dispatch table
+    for (int i = 0; i < param_handler_count; i++) {
+        if (strcmp(parameter->string, param_handlers[i].key) == 0) {
 
-    }else if (strcmp(parameter->valuestring, JSON_SAXIS_STEP_PIN)==0){
-        return(saxis_set_step_pin(target_axis,parameter->valueint));
-
-    }else if (strcmp(parameter->valuestring, JSON_SAXIS_ENABLE_PIN)==0){
-        return(saxis_set_enable_pin(target_axis,parameter->valueint));
-
-    }else if (strcmp(parameter->valuestring, JSON_SAXIS_STEP_PER_EU)==0){
-        return(saxis_set_steps_per_eu(target_axis,(float)parameter->valuedouble));
-
-    // not process critical, set directly
-    }else if (strcmp(parameter->valuestring, JSON_SAXIS_UNITS)==0){
-
-        if (strlen(parameter->valuestring)>MAX_UNITS_LENGTH){
-            strcpy(target_axis->unit_str,parameter->valuestring);
-            return((err_json_tuple_t){ESP_OK, NULL});
-
-        }else{
-            return((err_json_tuple_t){ESP_ERR_INVALID_ARG, NULL});
+            // if value of parameter key is null, return the current value and do not set
+            // TODO moving this inside wrapper function since they are not really wrappers anyway
+            if (param_handlers[i].cfg != NULL){
+                return param_handlers[i].cfg(target_axis,parameter);
+            }else{
+                return (err_json_tuple_t){ESP_ERR_INVALID_ARG,NULL};
+            }
         }
-
     }
+
+    ESP_LOGW(TAG, "No handler for parameter: %s", parameter->string);
 
     return((err_json_tuple_t){ESP_ERR_INVALID_ARG, NULL});
 }
@@ -83,10 +206,19 @@ err_json_tuple_t saxis_cfg_config_set_single(saxis_t *target_axis, cJSON *parame
 
 err_json_tuple_t saxis_cfg_init_from_json(const char *name, const cJSON *config){
     // check if name exists in hardware array, return if exists, otherwise allocate a new one     
-    
+
+    #if debug
+    ESP_LOGI(TAG, "Init with: %s", cJSON_PrintUnformatted(config));
+    #endif
+
     for(int i=0; i<=NUM_AXES; i++){
         // TODO one of these is NULL
-        if(name == NULL){return((err_json_tuple_t){ESP_ERR_INVALID_ARG, NULL});}
+        if(name == NULL){
+            #if debug
+            ESP_LOGI(TAG, "Name is null");
+            #endif
+            return((err_json_tuple_t){ESP_ERR_INVALID_ARG, NULL});
+        }
 
         if (g_axis_ptr_array[i]==NULL){continue;}
 
@@ -103,53 +235,80 @@ err_json_tuple_t saxis_cfg_init_from_json(const char *name, const cJSON *config)
     // check all items for unitialized axis
     int next_free_index = -1;
     for(int i=0; i<=NUM_AXES; i++){
-        if (g_axis_ptr_array[i]==NULL){continue;}
-
         if (!g_axis_ptr_array[i]->initialized){
             next_free_index = i;
             break;
         }
     }
 
-    if (next_free_index == -1) {return (err_json_tuple_t){ESP_ERR_INVALID_ARG, NULL};}
+    if (next_free_index == -1) {
+        #if debug
+        ESP_LOGI(TAG, "No free slots in axis array");
+        #endif
+        return (err_json_tuple_t){ESP_ERR_NOT_ALLOWED, NULL};
+    }
+
+
+    // -----------------
+    // Checks passed, start setting up device
 
     #if debug
     ESP_LOGI(TAG, "Initializing %s at index %d",name,next_free_index);
     #endif
 
+
     saxis_t *target_axis = g_axis_ptr_array[next_free_index];
 
     if (strlen(name)>MAX_NAME_LENGTH){
-        strcpy(target_axis->name_str,name);
-    }else{
+        #if debug
+        ESP_LOGI(TAG, "Name too long %s %d > %d",name,strlen(name),MAX_NAME_LENGTH);
+        #endif
         return (err_json_tuple_t){ESP_ERR_INVALID_ARG, NULL};
+    }else{
+        strcpy(target_axis->name_str,name);
     }
 
     // traverse JSON and set parameters as appropriate
     // should probably mirror struct structure as close as possible
 
-    cJSON *parameters = cJSON_GetObjectItem(config, JSON_PARAMETER_ARRAY);
+    // getting parameters from calling function, maybe should change?
+    //cJSON *parameters = cJSON_GetObjectItem(config, JSON_PARAMETER_ARRAY);
     cJSON *parameter = NULL;
     err_json_tuple_t result = {ESP_OK, NULL};
 
+    // array of results, should be deleted by caller function
+    cJSON *return_root = cJSON_CreateArray();
+
     int fail_count = 0; 
 
-    cJSON_ArrayForEach(parameter, parameters){
+    cJSON_ArrayForEach(parameter, config){
         result = saxis_cfg_config_set_single(target_axis, parameter);
         //TODO actually return results
         if (result.err != ESP_OK){
             fail_count++;
+            ESP_LOGW(TAG, "Error setting %s", parameter->string);
         }
+        cJSON_AddItemToArray(return_root, result.data);
+
     }
 
     // init after config in case any errors should abort the initialization
     esp_err_t init_err = saxis_cfg_initialize(target_axis);
 
-    return (err_json_tuple_t){fail_count+(init_err!=ESP_OK), NULL};
+    if (init_err != ESP_OK){
+        saxis_cfg_deinitialize(target_axis);
+        return (err_json_tuple_t){init_err, NULL};
+    }
+
+    return (err_json_tuple_t){(fail_count>1) ? ESP_ERR_INVALID_ARG : ESP_OK, return_root};
 
     // return JSON with success or failure in fields
 }
 
+//
+// TODO ERROR IN THUS FUNCTION
+//
+//
 err_json_tuple_t saxis_cfg_config_from_json(const char *name, const cJSON *config){
     // traverse JSON and set parameters as appropriate
     // should probably mirror struct structure as close as possible

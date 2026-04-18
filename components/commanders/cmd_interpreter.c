@@ -3,7 +3,7 @@
 #define MAX_SIGNAL_REGISTERS 2048
 
 //TODO standardize naming
-static const char *TAG = "CmdDispatch";
+static const char *TAG = "Ccmd_interpreter";
 
 // Allocate signal lookup table (2048?)
 static signal_register_t signal_register_table[MAX_SIGNAL_REGISTERS];

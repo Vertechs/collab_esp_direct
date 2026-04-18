@@ -9,7 +9,9 @@
 
 #define MAX_TOOL_HANDLERS 64
 
-static const char *TAG = "ToolDispatch";
+#define debug 1
+
+static const char *TAG = "cfg_dispatch";
 
 static cfg_dispatch_table_item_t cfg_dispatch_table[MAX_TOOL_HANDLERS];
 static int handler_count = 0;
@@ -38,6 +40,10 @@ err_json_tuple_t configurator_dispatch(uint8_t msg_type, cJSON *root){
         cJSON *is_init = cJSON_GetObjectItem(tool_cfg, "init"); // if null, assume this is not an init call
         cJSON *cfg_data = cJSON_GetObjectItem(tool_cfg, "para");
 
+        #if debug
+        ESP_LOGI(TAG, "Configuring \'%s\' as type \'%s\'", name_item->valuestring, type_item->valuestring);
+        #endif
+
         if (!cJSON_IsString(type_item) || !cJSON_IsString(name_item)) {
             ESP_LOGW(TAG, "Skipping device configuration (%d), missing required fields", loop_ind);
             failed_count++;
@@ -52,6 +58,9 @@ err_json_tuple_t configurator_dispatch(uint8_t msg_type, cJSON *root){
         bool handler_found = 0; //nested loops hurt brain
         for (int i=0; i < handler_count; i++){
             if (strcmp(cfg_dispatch_table[i].type, type_str) == 0){
+                #if debug
+                ESP_LOGI(TAG, "Handler found for type \'%s\', init=%d", cfg_dispatch_table[i].type, cJSON_IsTrue(is_init));
+                #endif
                 handler_found = true;
 
                 // IsTrue returns false if is_init is null or not true, so assume this is a config call if
@@ -71,7 +80,7 @@ err_json_tuple_t configurator_dispatch(uint8_t msg_type, cJSON *root){
             failed_count++;
         }
         else if (handler_return.err != ESP_OK){
-            ESP_LOGW(TAG, "Error in handler function for: %s, type:%s", name_str, type_str);
+            ESP_LOGW(TAG, "Error in handler function for: %s, type:%s, (err=%x)", name_str, type_str, handler_return.err);
             failed_count++;
         }
 
