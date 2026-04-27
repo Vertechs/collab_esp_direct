@@ -14,7 +14,7 @@
 #define NUM_AXES 4
 
 #define MAX_NAME_LENGTH 16
-#define MAX_UNITS_LENGTH 4
+#define MAX_UNITS_LENGTH 8
 
 
 typedef enum{
@@ -33,7 +33,8 @@ typedef struct{
 typedef enum{
     AXIS_FAULT_OUTPUT_FAILED = 0x00,
     AXIS_FAULT_ODOM_LOST = 0x01,
-    AXIS_FAULT_WD = 0x10
+    AXIS_FAULT_WD = 0x10,
+    AXIS_FAULT_TIMER = 0x20
 
     //TODO more faults
 }saxis_fault_code_t;
@@ -52,11 +53,12 @@ typedef struct{
 typedef struct{
 
     // discovery
-    char name_str[MAX_NAME_LENGTH];
-    char unit_str[MAX_UNITS_LENGTH];
+    char name_str[MAX_NAME_LENGTH+1]; // add one for null terminator, just in case
+    char unit_str[MAX_UNITS_LENGTH+1];
 
     // enable state and command?
     bool enable : 1; // allowed to run, enable pin true
+    bool reset : 1;
 
     // state flags
     bool initialized : 1; // data may not be valid if false, timer should not be allocated
@@ -88,13 +90,13 @@ typedef struct{
     float factor_steps_per_unit;
 
     // Internal targets
-    int32_t target_position_steps; // step pulses per second
-    int32_t target_velocity_steps; // step pulses per second
+    float target_position_steps; // step pulses per second
+    float target_velocity_steps; // step pulses per second
     int8_t target_direction_actual; //-1 or 1, set when velocity is set
 
     // Odometry
-    int32_t odom_steps_act;
-    int32_t home_steps; // odom reset to 0 when homed, using this just for history
+    int64_t odom_steps_act;
+    int64_t home_steps; // odom reset to 0 when homed, using this just for history
     saxis_fault_info fault_info;
 
     // Limits
@@ -131,6 +133,7 @@ esp_err_t saxis_set_pos_cmd(saxis_t *axis, float pos_cmd);
 esp_err_t saxis_set_mode_cmd(saxis_t *axis, saxis_state_t mode_cmd);
 esp_err_t saxis_set_enable(saxis_t *axis, bool enable_cmd);
 
+esp_err_t saxis_reset(saxis_t *axis);
 
 esp_err_t saxis_cfg_initialize(saxis_t *axis);
 esp_err_t saxis_cfg_deinitialize(saxis_t *axis);

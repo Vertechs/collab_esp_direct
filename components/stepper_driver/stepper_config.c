@@ -100,7 +100,12 @@ static err_json_tuple_t saxis_cfg_units(saxis_t *axis, cJSON *parameter){
     esp_err_t err = 0;
 
     if (!cJSON_IsNull(parameter)){
-        strcpy(axis->unit_str, parameter->valuestring);
+        if (strlen(parameter->valuestring)>MAX_UNITS_LENGTH){
+            err = ESP_ERR_INVALID_SIZE;
+        }
+        strncpy(axis->unit_str, parameter->valuestring,MAX_UNITS_LENGTH);
+        axis->unit_str[MAX_UNITS_LENGTH] = '\0';
+
     }
 
     cJSON *ret_val = cJSON_CreateObject(); //destroyed by root delete call
@@ -143,7 +148,7 @@ static err_json_tuple_t saxis_cfg_mode_cmd(saxis_t *axis, cJSON *parameter){
     esp_err_t err = 0;
 
     if (!cJSON_IsNull(parameter)){
-        err = saxis_set_pos_cmd(axis, parameter->valueint);
+        err = saxis_set_mode_cmd(axis, parameter->valueint);
     }
 
     cJSON *ret_val = cJSON_CreateObject(); //destroyed by root delete call
@@ -166,6 +171,40 @@ static err_json_tuple_t saxis_cfg_enable(saxis_t *axis, cJSON *parameter){
     return (err_json_tuple_t){err,ret_val};
 }
 
+// RESET COMMAND
+static err_json_tuple_t saxis_cfg_reset(saxis_t *axis, cJSON *parameter){
+
+    //no arguments used, assume always asking to reset
+    // if (!cJSON_IsNull(parameter)){
+    //    err = saxis_reset(axis);
+    // }
+
+    esp_err_t err = saxis_reset(axis);
+
+    cJSON *ret_val = cJSON_CreateObject(); //destroyed by root delete call
+    cJSON_AddNumberToObject(ret_val, JSON_SAXIS_FAULT_CODE, axis->fault_info.code);
+    cJSON_AddNumberToObject(ret_val, JSON_SAXIS_FAULT_TIME, axis->fault_info.time);
+    cJSON_AddNumberToObject(ret_val, JSON_SAXIS_FAULT_STAT, !axis->fault_okay);
+    
+    return (err_json_tuple_t){err,ret_val};
+}
+
+// GET FAULTS
+static err_json_tuple_t saxis_cfg_fault_info(saxis_t *axis, cJSON *parameter){
+    esp_err_t err = ESP_OK;
+
+    // no arguments used
+    // if (!cJSON_IsNull(parameter)){
+    //    err = saxis_reset(axis);
+    // }
+
+    cJSON *ret_val = cJSON_CreateObject(); //destroyed by root delete call
+    cJSON_AddNumberToObject(ret_val, JSON_SAXIS_FAULT_CODE, axis->fault_info.code);
+    cJSON_AddNumberToObject(ret_val, JSON_SAXIS_FAULT_TIME, axis->fault_info.time);
+    cJSON_AddNumberToObject(ret_val, JSON_SAXIS_FAULT_STAT, axis->fault_okay);
+    
+    return (err_json_tuple_t){err,ret_val};
+}
 
 //====
 // Main functions
@@ -181,7 +220,12 @@ err_json_tuple_t saxis_cfg_config_set_single(saxis_t *target_axis, cJSON *parame
     // TODO again not clean, might be a way to centralize this at least in the compiler
 
     #if debug
-    ESP_LOGI(TAG, "Setting %s", parameter->string);
+    if (cJSON_IsNull(parameter)){
+        ESP_LOGI(TAG, "Getting %s", parameter->string);
+    }else{
+        ESP_LOGI(TAG, "Setting %s", parameter->string);
+    }
+
     #endif
 
     // NEW static dispatch table
@@ -193,7 +237,7 @@ err_json_tuple_t saxis_cfg_config_set_single(saxis_t *target_axis, cJSON *parame
             if (param_handlers[i].cfg != NULL){
                 return param_handlers[i].cfg(target_axis,parameter);
             }else{
-                return (err_json_tuple_t){ESP_ERR_INVALID_ARG,NULL};
+                break;
             }
         }
     }
@@ -265,7 +309,8 @@ err_json_tuple_t saxis_cfg_init_from_json(const char *name, const cJSON *config)
         #endif
         return (err_json_tuple_t){ESP_ERR_INVALID_ARG, NULL};
     }else{
-        strcpy(target_axis->name_str,name);
+        strncpy(target_axis->name_str, name, MAX_NAME_LENGTH);
+        target_axis->name_str[MAX_NAME_LENGTH] = '\0';
     }
 
     // traverse JSON and set parameters as appropriate
@@ -310,40 +355,68 @@ err_json_tuple_t saxis_cfg_init_from_json(const char *name, const cJSON *config)
 //
 //
 err_json_tuple_t saxis_cfg_config_from_json(const char *name, const cJSON *config){
-    // traverse JSON and set parameters as appropriate
-    // should probably mirror struct structure as close as possible
+     // check if name exists in hardware array, return if exists, otherwise allocate a new one     
 
-    int target_index = -1;
+    #if debug
+    ESP_LOGI(TAG, "Config with: %s", cJSON_PrintUnformatted(config));
+    #endif
+
+    if(name == NULL){
+        #if debug
+        ESP_LOGI(TAG, "Name is null");
+        #endif
+        return((err_json_tuple_t){ESP_ERR_INVALID_ARG, NULL});
+    }
+
+    int axis_index = -1; 
     for(int i=0; i<=NUM_AXES; i++){
+
+        if (g_axis_ptr_array[i]==NULL){continue;}
+
         if(strcmp(name, g_axis_ptr_array[i]->name_str)==0){
-            target_index = i;
+            #if debug
+            ESP_LOGI(TAG, "Found %s at %d",name,i);
+            #endif
+            axis_index = i;
             break;
         }
     }
 
-    if (target_index == -1) {return (err_json_tuple_t){ESP_ERR_INVALID_ARG, NULL};}
+    if (axis_index == -1){
+        ESP_LOGW(TAG, "Axis %s not found",name);
+        return (err_json_tuple_t){ESP_ERR_NOT_FOUND, NULL};
+    }
 
-    saxis_t *target_axis = g_axis_ptr_array[target_index];
+    // -----------------
+    // Checks passed, start setting up device
+
+    saxis_t *target_axis = g_axis_ptr_array[axis_index];
 
     // traverse JSON and set parameters as appropriate
     // should probably mirror struct structure as close as possible
 
-    cJSON *parameters = cJSON_GetObjectItem(config, JSON_PARAMETER_ARRAY);
+    // getting parameters from calling function, maybe should change?
+    //cJSON *parameters = cJSON_GetObjectItem(config, JSON_PARAMETER_ARRAY);
     cJSON *parameter = NULL;
     err_json_tuple_t result = {ESP_OK, NULL};
 
+    // array of results, should be deleted by caller function
+    cJSON *return_root = cJSON_CreateArray();
+
     int fail_count = 0; 
 
-    cJSON_ArrayForEach(parameter, parameters){
+    cJSON_ArrayForEach(parameter, config){
         result = saxis_cfg_config_set_single(target_axis, parameter);
         //TODO actually return results
         if (result.err != ESP_OK){
             fail_count++;
+            ESP_LOGW(TAG, "Error setting %s", parameter->string);
         }
-    }
-    return (err_json_tuple_t){fail_count, NULL};
+        cJSON_AddItemToArray(return_root, result.data);
 
-    // return JSON with success or failure in fields
+    }
+
+    return (err_json_tuple_t){(fail_count>1) ? ESP_ERR_INVALID_ARG : ESP_OK, return_root};
 }
 
 

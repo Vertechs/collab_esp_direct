@@ -30,6 +30,12 @@
 #define JSON_SAXIS_SIGNAL_STATE "state"
 #define JSON_SAXIS_SIGNAL_ENABLE_CMD "en_cmd"
 #define JSON_SAXIS_SIGNAL_RESET_CMD "reset"
+
+#define JSON_SAXIS_FAULT_INFO "fault_info"
+#define JSON_SAXIS_FAULT_CODE "fault_code"
+#define JSON_SAXIS_FAULT_TIME "fault_time"
+#define JSON_SAXIS_FAULT_STAT "fault_stat"
+#define JSON_SAXIS_FAULT_RESET "reset"
 // TODO, not very clean, 
 // not clear to requesting computer what signals do, 
 // tree structure is not represented
@@ -54,6 +60,9 @@ static err_json_tuple_t saxis_cfg_pos_cmd(saxis_t *axis, cJSON *parameter);
 static err_json_tuple_t saxis_cfg_mode_cmd(saxis_t *axis, cJSON *parameter);
 static err_json_tuple_t saxis_cfg_enable(saxis_t *axis, cJSON *parameter);
 
+static err_json_tuple_t saxis_cfg_reset(saxis_t *axis, cJSON *parameter);
+static err_json_tuple_t saxis_cfg_fault_info(saxis_t *axis, cJSON *parameter);
+
 static const saxis_param_handler_t param_handlers[] = {
     { JSON_SAXIS_DIR_PIN, saxis_cfg_dir_pin },
     { JSON_SAXIS_STEP_PIN, saxis_cfg_step_pin },
@@ -66,6 +75,9 @@ static const saxis_param_handler_t param_handlers[] = {
     { JSON_SAXIS_SIGNAL_POS_T, saxis_cfg_pos_cmd },
     { JSON_SAXIS_SIGNAL_MODE_CMD, saxis_cfg_mode_cmd },
     { JSON_SAXIS_SIGNAL_ENABLE_CMD, saxis_cfg_enable },
+
+    { JSON_SAXIS_FAULT_RESET, saxis_cfg_reset },
+    { JSON_SAXIS_FAULT_INFO, saxis_cfg_fault_info }
 };
 
 static const int param_handler_count = sizeof(param_handlers) / sizeof(param_handlers[0]);

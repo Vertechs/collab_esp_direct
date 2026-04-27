@@ -16,6 +16,22 @@
 #define TCP_CONFIG_TASK_STACK_SIZE   8192    // Larger: cJSON allocates on the heap
                                              // but stack usage is also higher
  
+typedef enum{
+    // command message < 128
+    TCP_CMD_WRITE_SIGNAL = 0x01,
+    TCP_CMD_READ_SIGNAL = 0x02, // TODO allow subscription
+    TCP_CMD_WRITE_SIGNAL_ACK = 0x11, // same as write but reply with an ack packet with error code
+    TCP_CMD_WRITE_SIGNAL_REPLY = 0x12, // same as write but reply with the result of the write 
+
+    // config messages > 128
+    TCP_CFG_GENERIC = 0x81, // for normal JSON parameter config
+    TCP_CFG_GET_SIGNAL = 0x91, // get index of signal (will create new table entry if not existing)
+    TCP_CFG_FREE_SIGNAL = 0x92, // allow signal table entry to be freed (TODO how handle this for multiple clients?)
+
+
+}message_types_t;
+
+
 // Receive buffer sizes
 #define COMMAND_RECV_BUF_SIZE    256
 #define CONFIG_RECV_BUF_SIZE      2048

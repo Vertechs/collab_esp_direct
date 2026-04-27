@@ -58,7 +58,7 @@ static void handle_command_client(int client_sock){
 
         // TODO, send to command interpreter, allow for active connections
 
-        // TODO, send ack or failed to client
+        // TODO, send ack/fail or return read data to client
 
     }
 }

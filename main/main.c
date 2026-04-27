@@ -32,6 +32,7 @@
 // logger name
 static const char *TAG = "Main";
 
+extern saxis_t *g_axis_ptr_array[NUM_AXES];
 
 // setup status LED pin and timer?
 static void status_setup(void)
@@ -61,6 +62,7 @@ void app_main(void)
 
     //TODO Axis Init
     saxis_setup_all();
+    registry_init();
 
     //TODO Server Init
     config_server_start();
@@ -78,8 +80,14 @@ void app_main(void)
             ESP_LOGI(TAG, "Free heap = %u", xPortGetFreeHeapSize());
         }
 
+        // TODO move to own task
+        for(int i=0;i<NUM_AXES;i++){
+            saxis_main_scan(g_axis_ptr_array[i]);
+        }
+
         loop_i++;
 
         vTaskDelay(MAIN_PERIOD / portTICK_PERIOD_MS);
+        
     }
 }

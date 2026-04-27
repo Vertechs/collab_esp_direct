@@ -17,7 +17,8 @@
 #define PIN_UPPER_OK 33
 #define PIN_SAFE_MASK 0b0000'0000'0000'0111'1111'1111'1111'1111'1000
 
-#define TIMER_PERIOD_MAX 10000000
+#define TIMER_PERIOD_MAX 60000000 // 60s
+#define TIMER_PERIOD_MIN 100 // 10kHz
 
 // hardware array lives here? makes sense, but need extern?
 saxis_t g_axis_data_array[NUM_AXES] = {0};
@@ -91,15 +92,44 @@ esp_err_t saxis_ctrl_hold(saxis_t *axis){
 }
 
 esp_err_t saxis_ctrl_vel(saxis_t *axis){
+    // DIRECTION
     bool dir_level = axis->target_direction_actual > 0 ? 1 : 0; // set in velocity set function
     dir_level = axis->dir_pin_inv ? !dir_level : dir_level;
     gpio_set_level(axis->dir_pin, dir_level); //TODO might need this is timer scan
+
+    // STEP RATE
+    axis->vel_timer_period = (1e6 / (axis->target_velocity_steps))/2;
+    if (axis->vel_timer_period > TIMER_PERIOD_MAX){
+        axis->vel_timer_period = TIMER_PERIOD_MAX;
+        ESP_LOGW(TAG, "Axis [%s] step clock period too long, limited to %dus",axis->name_str,TIMER_PERIOD_MAX);
+    }else if (axis->vel_timer_period < TIMER_PERIOD_MIN){
+        axis->vel_timer_period = TIMER_PERIOD_MIN;
+        ESP_LOGW(TAG, "Axis [%s] step clock period too short, limited to %dus",axis->name_str,TIMER_PERIOD_MIN);
+    }
+
+
+    gptimer_alarm_config_t alarm_config = {
+        .reload_count = 0, // Reset count to 0
+        .alarm_count = axis->vel_timer_period, // timer period, 1us resolution
+        .flags.auto_reload_on_alarm = true, // auto reload timer
+    };
+
+    // TIMER SETUP
+    esp_err_t timer_err = gptimer_set_alarm_action(axis->hardware_timer, &alarm_config);
+    if (timer_err==ESP_OK){timer_err = gptimer_start(axis->hardware_timer);}
+
+    if (timer_err!=ESP_OK){
+        ESP_LOGW(TAG, "Axis [%s] timer fault", axis->name_str, axis->vel_timer_period);
+        saxis_fault(axis, AXIS_FAULT_TIMER);
+        return timer_err;
+    }
 
     #if debug
     ESP_LOGI(TAG, "Axis [%s] timer start with period of %lu us", axis->name_str, axis->vel_timer_period);
     #endif
 
-    gptimer_start(axis->hardware_timer);
+    axis->mode = AXIS_CTRL_VELOCITY;
+
     return ESP_OK;
 }
 
@@ -115,6 +145,8 @@ Parameter and signal set functions
 Should evaluate quickly to be safe for configs and commands
 =========
 */
+
+//TODO check for existing pins, global pin array?
 
 // no cJSON parsing or handling, keep light if can
 esp_err_t saxis_set_dir_pin(saxis_t *axis, gpio_num_t pin_num){
@@ -178,6 +210,7 @@ esp_err_t saxis_set_vel_cmd(saxis_t *axis, float vel_cmd){
     }else{
         axis->target_velocity_cmd = vel_cmd;
         axis->target_velocity_steps = vel_cmd * axis->factor_steps_per_unit * axis->factor_microstep;
+        axis->target_direction_actual = (vel_cmd > 0) ? 1 : -1;
         return ESP_OK;
     }
 }
@@ -242,7 +275,7 @@ bool IRAM_ATTR saxis_timer_scan(gptimer_handle_t timer, const gptimer_alarm_even
     }
 
     // increment step counter only on transition from low to high
-    axis->odom_steps_act += axis->pin_states.step * axis->pin_states.dir;
+    axis->odom_steps_act += axis->pin_states.step * axis->target_direction_actual;
 
     return 0;
 }
@@ -287,12 +320,19 @@ esp_err_t saxis_cfg_initialize(saxis_t *axis){
     axis->odom_steps_act = 0;
     axis->enable = 0;
 
+    //set default hardware
+    axis->wd_timeout_us = 10000000;
+    axis->vel_timer_period = 1000000;
+    axis->factor_microstep = 1;
+    axis->factor_steps_per_unit = 1.0;
+
+
     // create hardware timer for step pin
     axis->hardware_timer = NULL;
     gptimer_config_t timer_config = {
-        .clk_src = GPTIMER_CLK_SRC_DEFAULT, // Select the default clock source
-        .direction = GPTIMER_COUNT_UP,      // Counting direction is up
-        .resolution_hz = 1 * 1000 * 1000,   // Resolution is 1 MHz, i.e., 1 tick equals 1 microsecond
+        .clk_src = GPTIMER_CLK_SRC_DEFAULT, // default hardware clock
+        .direction = GPTIMER_COUNT_UP,      // count up
+        .resolution_hz = 1 * 1000 * 1000,   // Resolution is 1us / @1MHz
     };
 
     // Create a timer instance
@@ -322,7 +362,9 @@ esp_err_t saxis_cfg_initialize(saxis_t *axis){
     timer_err = gptimer_enable(axis->hardware_timer);
     if (timer_err) { return timer_err;}
 
+    // If all ok, set as ready
     axis->initialized = true;
+    axis->fault_okay = 1;
 
     ESP_LOGI(TAG, "Axis [%s] init complete", axis->name_str);
 
@@ -331,6 +373,10 @@ esp_err_t saxis_cfg_initialize(saxis_t *axis){
 }
 
 esp_err_t saxis_cfg_deinitialize(saxis_t *axis){
+    #if debug
+    ESP_LOGI(TAG, "Freeing [%s]", axis->name_str);
+    #endif
+
     esp_err_t err = 0;
     
     gpio_reset_pin(axis->en_pin);
@@ -351,18 +397,43 @@ esp_err_t saxis_cfg_deinitialize(saxis_t *axis){
     axis->moving = false;
     axis->enable = false;
 
+    if (err){ESP_LOGE(TAG, "Timer error while freeing [%s]", axis->name_str);}
+
     return err ? ESP_FAIL : ESP_OK;
+}
+
+esp_err_t saxis_reset(saxis_t *axis){
+    //TODO
+    axis->fault_okay = 1;
+    return ESP_FAIL;
 }
 
 esp_err_t saxis_main_scan(saxis_t *axis){
     // nothing set in this function, only calls to set functions
 
+    // set last scan even if not initialized
+    uint64_t now = esp_timer_get_time();
+    uint64_t prev_scan = axis->wd_last_scan_us;
+    axis->wd_last_scan_us = now;
+
+    // skip wd and fault checks if not initialized
     if (!axis->initialized){return ESP_FAIL;}
 
+    #if debug
+    ESP_LOGI(TAG, "Scanning [%s], odom=%"PRId64", mode=%d/%d, enable=%d, fault_ok=%d, init=%d", 
+        axis->name_str, 
+        axis->odom_steps_act, 
+        axis->mode,
+        axis->mode_cmd,
+        axis->enable, 
+        axis->fault_okay,
+        axis->initialized
+    );
+    #endif
 
     // TODO not actually a watchdog timer, should set this up to call elsewhere
-    uint64_t now = esp_timer_get_time();
-    if (now > axis->wd_last_scan_us + axis->wd_timeout_us){
+
+    if (now > prev_scan + axis->wd_timeout_us){
         saxis_estop(axis);
         saxis_fault(axis, AXIS_FAULT_WD);
         ESP_LOGE(TAG, "Axis [%s] watchdog overrun at %d microseconds", axis->name_str, now - axis->wd_last_scan_us);
@@ -398,12 +469,19 @@ esp_err_t saxis_main_scan(saxis_t *axis){
         }
     }
 
-    #if debug
-    // uint64_t timer_val;
-    // ESP_ERROR_CHECK(gptimer_get_raw_count(axis->gptimer, &timer_val));
-    // ESP_LOGI(TAG, "Axis [%s] scan timer at %llu counts", axis->name_str, timer_val);
-    ESP_LOGI(TAG, "Axis [%s] scanned, odom=%lld", axis->name_str, axis->odom_steps_act);
-    #endif
+    // #if debug
+    // // uint64_t timer_val;
+    // // ESP_ERROR_CHECK(gptimer_get_raw_count(axis->gptimer, &timer_val));
+    // // ESP_LOGI(TAG, "Axis [%s] scan timer at %llu counts", axis->name_str, timer_val);
+    // ESP_LOGI(TAG, "Scanned [%s], odom=%"PRId64", mode=%d/%d, enable=%d, fault_ok=%d", 
+    //     axis->name_str, 
+    //     axis->odom_steps_act, 
+    //     axis->mode,
+    //     axis->mode_cmd,
+    //     axis->enable, 
+    //     axis->fault_okay
+    // );
+    // #endif
 
     return mode_err;
 
